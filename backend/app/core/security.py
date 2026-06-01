@@ -10,25 +10,34 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from app.config import get_settings
 
 settings = get_settings()
 
-# bcrypt — algorithme de hachage de référence pour les mots de passe
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt limite l'entrée à 72 octets — on tronque de façon cohérente au hachage
+# et à la vérification (les octets au-delà de 72 sont ignorés par l'algorithme).
+_BCRYPT_MAX_BYTES = 72
+
+
+def _to_bcrypt_bytes(plain_password: str) -> bytes:
+    return plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(plain_password: str) -> str:
     """Retourne le hash bcrypt d'un mot de passe en clair."""
-    return pwd_context.hash(plain_password)
+    return bcrypt.hashpw(_to_bcrypt_bytes(plain_password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
     """Vérifie un mot de passe en clair contre son hash stocké."""
-    return pwd_context.verify(plain_password, password_hash)
+    try:
+        return bcrypt.checkpw(_to_bcrypt_bytes(plain_password), password_hash.encode("utf-8"))
+    except ValueError:
+        # password_hash mal formé (ex: pas un hash bcrypt)
+        return False
 
 
 def create_access_token(

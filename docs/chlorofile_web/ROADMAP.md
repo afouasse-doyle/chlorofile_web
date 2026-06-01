@@ -23,20 +23,21 @@ Légende : ✅ fait · 🚧 en cours · ⬜ à faire
 
 | Étape | Statut | Notes |
 |---|---|---|
-| Initialiser un dépôt git séparé | 🚧 | détacher du `.git` de flaskapp |
-| Installer les dépendances backend | ⬜ | `pip install -r backend/requirements.txt` |
-| Appliquer `schema_appweb.sql` sur `chlorofile2` | ⬜ | crée le schéma `appweb` |
-| Créer le 1er admin (CLI) | ⬜ | `python -m scripts.create_user` |
-| Lancer le backend (uvicorn) + tester via /docs | ⬜ | Swagger UI, pas besoin du frontend |
-| Tester login + import preview de bout en bout | ⬜ | upload d'un DBF réel |
+| Initialiser un dépôt git séparé | ✅ | dépôt propre, remote `chlorofile_web.git`, commit initial poussé (67 fichiers) |
+| Installer les dépendances backend | ✅ | installées + testées ; passlib remplacé par bcrypt direct (incompat. bcrypt 5.0) |
+| Appliquer `schema_appweb.sql` sur `chlorofile2` | ✅ | 12 tables + seed (22 alias, 6 règles), owner=chlorofile2_app |
+| Créer le 1er admin (CLI) | ✅ | fqcf_admin créé (user_ref1=null) |
+| Lancer le backend (uvicorn) + tester via /docs | ✅ | uvicorn OK, Swagger accessible |
+| Tester login + /auth/me | ✅ | login + JWT + session + /auth/me 200 testés en réel |
+| Tester import preview (upload DBF) | ✅ | testé avec PLR réel : 13 champs mappés, aperçu OK, lignes stagées |
 
 ## Phase 2 — Commit réel (écriture métier)
 
 | Étape | Statut | Notes |
 |---|---|---|
-| `UeService.upsert_from_batch()` | ⬜ | distinct UE → upsert `appweb.ue` |
+| `UeService.upsert_from_batch()` | ✅ | `ue_service.commit_batch` : somme ha, dérive traitement via dica_codes, upsert ue. Testé (7.27, REB) |
 | `ParcelleService.upsert_from_batch()` | ⬜ | upsert + soft-delete des parcelles disparues |
-| Brancher le commit dans `/imports/{uuid}/commit` | ⬜ | remplace le stub actuel |
+| Brancher le commit dans `/imports/{uuid}/commit` | ✅ | UE → ue_service ; PDS → 501 (à venir) |
 | Migrations Alembic | ⬜ | versionner les évolutions de schéma |
 
 ## Phase 3 — Validation & édition métier
@@ -44,7 +45,8 @@ Légende : ✅ fait · 🚧 en cours · ⬜ à faire
 | Étape | Statut | Notes |
 |---|---|---|
 | Service de validation (validation_rules) | ⬜ | écrit `validation_results` |
-| Routes UE / parcelles (GET/PATCH) | ⬜ | + edit_history |
+| Routes UE (GET) | ✅ | `GET /ue/`, `GET /ue/{uuid}` (scopé coop) |
+| Routes UE (PATCH) / parcelles | ⬜ | + edit_history |
 | Génération Kizeo (simulée) | ⬜ | `kizeo_generation_log` |
 
 ## Phase 4 — Frontend

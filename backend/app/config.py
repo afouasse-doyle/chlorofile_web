@@ -1,8 +1,15 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# .env partagé avec flaskapp, localisé par la variable système CHLOROFILE_ENV_PATH.
+# Si absente, pydantic-settings se rabat sur les variables d'environnement brutes.
+_ENV_PATH = os.environ.get("CHLOROFILE_ENV_PATH")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_file=_ENV_PATH,
         env_file_encoding="utf-8",
         extra="ignore",
     )

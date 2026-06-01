@@ -152,16 +152,56 @@ VALUES
     ('ENTREPREN',  'entrepreneur_travaux',        'dbf', 10),
     ('DT_DEBUT',   'debut',                       'dbf', 10),
     ('DT_FIN',     'fin',                         'dbf', 10),
-    ('TY_TRAIT',   'traitement',                  'dbf', 10),
+    ('TY_TRAIT',   'code_dica',                   'dbf', 10),  -- TY_TRAIT = code DICA → traitement dérivé
     ('REGION',     'region',                      'dbf', 10),
     -- Placette / parcelle
-    ('PLT_ADMIS',  'plant_ha',                    'dbf', 10),  -- plant_ha vs plant_max : à confirmer
     ('DT_PRO_SOU', 'date_production_source',      'dbf', 10),
     ('PRO_SOU',    'production_source',           'dbf', 10),
     ('TY_PLACET',  'type_placette',               'dbf', 10),
     ('MET_PROD',   'methode_production',          'dbf', 10),
     ('GARMIN',     'garmin',                      'dbf', 10)
 ON CONFLICT (source_field, target_field, source_type) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 1bis. Codes DICA (référence) — dérivation du traitement
+-- ---------------------------------------------------------------------------
+-- L'utilisateur saisit code_dica ; traitement en est dérivé (lookup).
+-- traitement_ps n'est PAS ici : c'est un champ liste indépendant (préparation
+-- de terrain) — voir appweb.list_options.
+-- Données seedées depuis scripts/dica.xlsm → voir dica_codes_seed.sql (149 codes).
+CREATE TABLE IF NOT EXISTS appweb.dica_codes (
+    code_dica       TEXT    PRIMARY KEY,       -- ex: 'PL_U-MONO'
+    description     TEXT,                      -- ex: 'Plantation uniforme monospécifique'
+    traitement      TEXT                       -- ex: 'REB' (dérivé)
+);
+
+COMMENT ON TABLE appweb.dica_codes IS
+    'Référence des codes DICA. traitement se dérive de code_dica. '
+    'Seed : scripts/dica.xlsm → docs/chlorofile_web/dica_codes_seed.sql.';
+
+-- ---------------------------------------------------------------------------
+-- 1ter. Options des listes déroulantes (génériques)
+-- ---------------------------------------------------------------------------
+-- Alimente TOUS les menus déroulants de l'UI (region, gradient_intensite,
+-- traitement_ps, equip_utilise, methode_andains, parcelle_faite, code_ratf…).
+-- Scopable par région (region='*' = toutes). Seedé depuis les validations de
+-- cellules du DATA_MANUELLE (scripts/DATA_MANUELLE_2026_Master.xlsm).
+-- NB : code_dica n'est PAS ici — sa liste = appweb.dica_codes.
+CREATE TABLE IF NOT EXISTS appweb.list_options (
+    id              BIGSERIAL   PRIMARY KEY,
+    list_name       TEXT        NOT NULL,           -- ex: 'region', 'traitement_ps'
+    region          TEXT        NOT NULL DEFAULT '*',
+    value           TEXT        NOT NULL,
+    label           TEXT,
+    display_order   INT,
+    is_active       BOOLEAN     NOT NULL DEFAULT TRUE,
+
+    UNIQUE (list_name, region, value)
+);
+
+COMMENT ON TABLE appweb.list_options IS
+    'Options des menus déroulants, par liste et région. '
+    'Seed depuis les validations Excel du DATA_MANUELLE. code_dica = voir dica_codes.';
 
 -- ---------------------------------------------------------------------------
 -- 2. Lots d'import (import_batches)
@@ -171,7 +211,7 @@ CREATE TABLE IF NOT EXISTS appweb.import_batches (
     batch_uuid        UUID         NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     user_ref1         TEXT         NOT NULL,             -- coop (clé RLS)
     year_suffix       TEXT         NOT NULL,             -- ex: '2025-2026'
-    dbf_type          TEXT         NOT NULL,             -- 'PLR', 'RXF', 'PDS'
+    dbf_type          TEXT         NOT NULL,             -- 'UE' (prescription) ou 'PDS' (parcelles)
     original_filename TEXT         NOT NULL,
     file_size_bytes   BIGINT,
     row_count         INTEGER,
@@ -216,6 +256,9 @@ COMMENT ON TABLE appweb.import_batch_rows IS
 -- 4. Unités d'échantillonnage (ue)
 -- ---------------------------------------------------------------------------
 -- Entité principale. Une ligne par unite_d_echantillonnage_ue distinct.
+-- NOTE : une UE pourra avoir plusieurs chantiers / secteurs d'intervention.
+-- Ce niveau de détail (table dédiée chantiers/SI + géométrie des blocs) sera
+-- ajouté PLUS TARD. Pour l'instant, toute l'info de base reste au niveau UE.
 CREATE TABLE IF NOT EXISTS appweb.ue (
     id                          BIGSERIAL   PRIMARY KEY,
     ue_uuid                     UUID        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
@@ -223,7 +266,8 @@ CREATE TABLE IF NOT EXISTS appweb.ue (
     year_suffix                 TEXT        NOT NULL,
     unite_d_echantillonnage_ue  TEXT        NOT NULL,           -- ex: '11161_050_ACJAS'
 
-    -- Champs prescription (issus du DBF)
+    -- Champs auto (issus du DBF)
+    code_dica                   TEXT,                           -- TY_TRAIT → code DICA
     no_prescription             TEXT,
     secteur_intervention        TEXT,
     chantier                    TEXT,
@@ -231,16 +275,38 @@ CREATE TABLE IF NOT EXISTS appweb.ue (
     code_ratf                   TEXT,
     contrat                     TEXT,
     projet                      TEXT,
-    ha_prescription             NUMERIC(12, 4),
+    ha_prescription             NUMERIC(12, 4),                 -- somme des lignes de la UE
     entrepreneur_travaux        TEXT,
     debut                       DATE,
     fin                         DATE,
-    traitement                  TEXT,
-    region                      TEXT,
 
-    -- Champs à saisie manuelle (absents du DBF)
+    -- Champ dérivé
+    traitement                  TEXT,                           -- dérivé de code_dica (dica_codes)
+
+    -- Champs à saisie manuelle (web) — alignés sur app.prescriptions
+    region                      TEXT,
     gradient_intensite          TEXT,
     rayon                       NUMERIC(10, 2),
+    plant_ha                    NUMERIC(12, 4),
+    traitement_ps               TEXT,
+    denombrement_cn             INTEGER,
+    taux_occ_andain             NUMERIC(12, 4),
+    nb_parcelle_ue              INTEGER,
+    parcelle_faite              TEXT,
+    directive_op                TEXT,
+    ha_net                      NUMERIC(12, 4),
+    origine                     TEXT,
+    preparation_de_terrain      TEXT,
+    type_de_degagement          TEXT,
+    equip_utilise               TEXT,
+    methode_andains             TEXT,
+    nb_si_reboisement           NUMERIC(12, 4),
+    plant_max                   NUMERIC(12, 4),
+    plant_reboise               NUMERIC(12, 4),
+    ms_propice                  NUMERIC(12, 4),
+    note_1                      TEXT,
+    andain                      NUMERIC(12, 4),
+    entre_andain                NUMERIC(12, 4),
     stocking_av_tr              NUMERIC(12, 4),
 
     -- Métadonnées
@@ -260,7 +326,8 @@ CREATE TABLE IF NOT EXISTS appweb.ue (
 
 COMMENT ON TABLE appweb.ue IS
     'Unité d''échantillonnage — entité principale. '
-    'Clé métier : (user_ref1, year_suffix, unite_d_echantillonnage_ue).';
+    'Clé métier : (user_ref1, year_suffix, unite_d_echantillonnage_ue). '
+    'Détail chantiers/secteurs d''intervention par UE : table dédiée à venir.';
 
 -- ---------------------------------------------------------------------------
 -- 5. Parcelles
@@ -320,37 +387,70 @@ COMMENT ON TABLE appweb.edit_history IS
 -- 7. Règles de validation (configurables)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS appweb.validation_rules (
-    id              BIGSERIAL   PRIMARY KEY,
-    year_suffix     TEXT        NOT NULL,           -- '2026-2027' ou '*'
-    module          TEXT        NOT NULL,           -- 'prescription', 'parcelle'
-    traitement      TEXT        NOT NULL,           -- 'REB', 'ECL', '*'
-    champ           TEXT        NOT NULL,           -- nom canonique
-    rule_type       TEXT        NOT NULL,           -- 'required', 'min', 'max', 'regex', 'in_list'
-    rule_value      TEXT,
-    message         TEXT,
-    is_active       BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id               BIGSERIAL   PRIMARY KEY,
+    rule_name        TEXT,                                  -- nom de la règle (référencé par field_definitions.validation_rule)
+    year_suffix      TEXT        NOT NULL DEFAULT '*',      -- '2026-2027' ou '*' (pack-driven)
+    region           TEXT        NOT NULL DEFAULT '*',      -- 'CN', 'ABIT'… ou '*'
+    module           TEXT        NOT NULL,                  -- 'prescription', 'parcelle'
+    traitement       TEXT        NOT NULL DEFAULT '*',      -- valeur(s) ou motif, selon traitement_match
+    traitement_match TEXT        NOT NULL DEFAULT 'exact',  -- 'exact' | 'in' (liste séparée par ,) | 'contains'
+    champ            TEXT        NOT NULL,                  -- nom canonique
+    rule_type        TEXT        NOT NULL DEFAULT 'required',
+    rule_value       TEXT,
+    message          TEXT,
+    is_active        BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT validation_rules_module_check
         CHECK (module IN ('prescription', 'parcelle')),
     CONSTRAINT validation_rules_rule_type_check
-        CHECK (rule_type IN ('required', 'min', 'max', 'regex', 'in_list'))
+        CHECK (rule_type IN ('required', 'min', 'max', 'regex', 'in_list')),
+    CONSTRAINT validation_rules_match_check
+        CHECK (traitement_match IN ('exact', 'in', 'contains'))
 );
 
 COMMENT ON TABLE appweb.validation_rules IS
-    'Règles de validation par année / module / traitement. '
-    'Remplace les colonnes orange du DATA_MANUELLE. ''*'' = transversal.';
+    'Règles conditionnelles par (year_suffix, region, traitement). Pack-driven. '
+    'Remplace les colonnes jaunes du DATA_MANUELLE. Seed : validation_rules_seed.sql.';
 
-INSERT INTO appweb.validation_rules (year_suffix, module, traitement, champ, rule_type, message)
-VALUES
-    ('*',         'prescription', '*',   'no_prescription',  'required', 'Le numéro de prescription est obligatoire'),
-    ('*',         'prescription', '*',   'uaf',              'required', 'L''UAF est obligatoire'),
-    ('*',         'prescription', '*',   'traitement',       'required', 'Le traitement est obligatoire'),
-    ('*',         'prescription', '*',   'ha_prescription',  'required', 'La superficie prescrite est obligatoire'),
-    ('2026-2027', 'prescription', 'REB', 'plant_ha',         'required', 'plant_ha est obligatoire pour REB 2026-2027'),
-    ('*',         'parcelle',     '*',   'numero_de_parcelle','required', 'Le numéro de parcelle est obligatoire')
-ON CONFLICT DO NOTHING;
+-- Seed des règles conditionnelles → voir docs/chlorofile_web/validation_rules_seed.sql
+-- (plant_ha_plantation, denombrement_cn_avt, traitement_ps_prep, taux_occ_andain_abit)
+
+-- ---------------------------------------------------------------------------
+-- 7bis. Catalogue de champs (field_definitions) — pilote l'UI + la validation
+-- ---------------------------------------------------------------------------
+-- Pack-driven par year_suffix (un jeu complet de lignes par année).
+-- data_type → widget · list_name → menu (list_options/dica_codes) · min/max → contraintes
+-- requirement (R/O/C) → obligation de base · validation_rule → règle conditionnelle liée.
+-- Seed : docs/chlorofile_web/field_definitions_seed.sql.
+CREATE TABLE IF NOT EXISTS appweb.field_definitions (
+    id              BIGSERIAL   PRIMARY KEY,
+    entity          TEXT        NOT NULL,                  -- 'ue' | 'parcelle'
+    year_suffix     TEXT        NOT NULL DEFAULT '*',
+    field_name      TEXT        NOT NULL,                  -- = nom de colonne
+    label           TEXT        NOT NULL,
+    data_type       TEXT        NOT NULL,                  -- texte/entier/decimal/date/booleen/liste
+    source          TEXT        NOT NULL,                  -- auto/manuel/derive
+    requirement     TEXT        NOT NULL DEFAULT 'O',      -- R/O/C
+    list_name       TEXT,                                  -- si liste : list_options.list_name ou 'dica_codes'
+    validation_rule TEXT,                                  -- si C : rule_name dans validation_rules
+    min_value       NUMERIC,
+    max_value       NUMERIC,
+    is_editable     BOOLEAN     NOT NULL DEFAULT TRUE,
+    display_order   INT,
+    help_text       TEXT,
+    is_active       BOOLEAN     NOT NULL DEFAULT TRUE,
+
+    CONSTRAINT field_definitions_uq UNIQUE (entity, year_suffix, field_name),
+    CONSTRAINT fd_data_type_chk  CHECK (data_type IN ('texte','entier','decimal','date','booleen','liste')),
+    CONSTRAINT fd_source_chk     CHECK (source IN ('auto','manuel','derive')),
+    CONSTRAINT fd_requirement_chk CHECK (requirement IN ('R','O','C'))
+);
+
+COMMENT ON TABLE appweb.field_definitions IS
+    'Catalogue des champs (pack-driven par year_suffix). Pilote l''UI et la validation. '
+    'Seed : docs/chlorofile_web/field_definitions_seed.sql.';
 
 -- ---------------------------------------------------------------------------
 -- 8. Résultats de validation

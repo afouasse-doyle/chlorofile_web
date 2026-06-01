@@ -5,6 +5,7 @@ from app.models.login_attempt import LoginAttempt
 from app.models.field_alias import DbfFieldAlias
 from app.models.import_batch import ImportBatch, ImportBatchRow
 from app.models.ue import Ue
+from app.models.dica_code import DicaCode
 from app.models.parcelle import Parcelle
 from app.models.edit_history import EditHistory
 from app.models.validation_rule import ValidationRule
@@ -20,6 +21,7 @@ __all__ = [
     "ImportBatch",
     "ImportBatchRow",
     "Ue",
+    "DicaCode",
     "Parcelle",
     "EditHistory",
     "ValidationRule",

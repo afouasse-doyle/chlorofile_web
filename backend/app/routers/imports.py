@@ -20,11 +20,14 @@ from app.dependencies import get_active_user_ref1
 from app.models.import_batch import ImportBatch, ImportBatchRow
 from app.schemas.import_batch import DBFPreviewOut, ImportBatchOut
 from app.services import dbf_import as dbf_service
+from app.services import ue_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/imports", tags=["imports"])
 
-ALLOWED_DBF_TYPES = {"PLR", "RXF", "PDS"}
+# 2 types seulement : UE (prescription/unité d'échantillonnage) et PDS (parcelles).
+# Les variations de champs entre régions sont absorbées par dbf_field_aliases.
+ALLOWED_DBF_TYPES = {"UE", "PDS"}
 
 
 @router.post("/upload", response_model=DBFPreviewOut, status_code=status.HTTP_200_OK)
@@ -113,15 +116,15 @@ async def upload_dbf(
     )
 
 
-@router.post("/{batch_uuid}/commit", response_model=ImportBatchOut)
+@router.post("/{batch_uuid}/commit")
 def commit_import(
     batch_uuid: uuid_lib.UUID,
     user_ref1: str = Depends(get_active_user_ref1),
     db: Session = Depends(get_db),
 ):
     """
-    Valide un lot en statut 'preview' et éclate les lignes stagées vers ue/parcelles.
-    À implémenter : UeService.upsert_from_batch() + ParcelleService.upsert_from_batch().
+    Valide un lot en statut 'preview' et écrit les données en base.
+    UE → upsert appweb.ue (somme ha, dérivation traitement). PDS → à venir.
     """
     batch = (
         db.query(ImportBatch)
@@ -137,20 +140,22 @@ def commit_import(
             detail=f"Le lot est en statut '{batch.status}', commit impossible",
         )
 
-    # TODO : lire les ImportBatchRow et éclater normalized_data vers ue / parcelles
-    #   1. distinct unite_d_echantillonnage_ue → upsert appweb.ue
-    #   2. par numero_de_parcelle → upsert appweb.parcelles (lié à l'ue)
-    #   3. parcelles absentes d'un réimport → is_active=false
+    if batch.dbf_type == "UE":
+        result = ue_service.commit_batch(db, batch)
+    elif batch.dbf_type == "PDS":
+        raise HTTPException(status_code=501, detail="Import PDS (parcelles) pas encore implémenté")
+    else:
+        raise HTTPException(status_code=422, detail=f"dbf_type inconnu : {batch.dbf_type}")
+
     batch.status = "committed"
     batch.committed_at = datetime.now(timezone.utc)
     db.commit()
-    db.refresh(batch)
 
     logger.info(
-        "Import committed batch=%s type=%s rows=%s user=%s",
-        batch_uuid, batch.dbf_type, batch.row_count, batch.user_ref1,
+        "Import committed batch=%s type=%s user=%s result=%s",
+        batch_uuid, batch.dbf_type, batch.user_ref1, result,
     )
-    return batch
+    return {"batch_uuid": str(batch_uuid), "status": "committed", **result}
 
 
 @router.get("/", response_model=list[ImportBatchOut])
