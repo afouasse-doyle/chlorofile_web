@@ -1,0 +1,11 @@
+# Normalisation des fins de ligne — LF dans le dépôt, quelle que soit la machine.
+* text=auto eol=lf
+
+# Fichiers binaires : pas de conversion
+*.dbf  binary
+*.DBF  binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.xlsx binary
+*.xlsm binary

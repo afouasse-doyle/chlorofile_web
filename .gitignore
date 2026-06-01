@@ -1,0 +1,56 @@
+# =============================================================================
+# .gitignore — Chlorofile Web
+# -----------------------------------------------------------------------------
+# Ce dossier contient AUSSI une copie de flaskapp (référence / guides IA).
+# Stratégie « liste blanche » : on ignore tout par défaut, et on ne suit que :
+#   - le code du nouveau projet : backend/, frontend/, migrations/, tests/
+#   - la documentation, y compris les docs flaskapp + AI_RULES (base de guides IA)
+# Le CODE flaskapp (scripts/, run_flask_server.py, etc.) reste sur le disque
+# pour référence mais n'est PAS suivi par ce dépôt.
+# =============================================================================
+
+# 1. Ignorer tout à la racine
+/*
+
+# 2. Ré-inclure le code du nouveau projet
+!/backend/
+!/frontend/
+!/migrations/
+!/tests/
+
+# 3. Documentation : tout docs/ (docs flaskapp + AI_RULES + docs/chlorofile_web)
+!/docs/
+
+# 4. Guides / config racine à suivre
+!/.gitignore
+!/.gitattributes
+!/CLAUDE.md
+
+# -----------------------------------------------------------------------------
+# 5. Artefacts à ignorer même dans les dossiers suivis
+# -----------------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+node_modules/
+dist/
+build/
+.env
+.env.*
+*.log
+logs/
+.vscode/
+.idea/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Fichiers DBF de données réelles — ne jamais committer (données coop)
+*.dbf
+*.DBF
+# ...sauf les petits fichiers de fixtures pour les tests
+!tests/fixtures/**/*.dbf
