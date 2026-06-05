@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UeOut(BaseModel):
@@ -47,3 +48,41 @@ class UeOut(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class MissingFieldOut(BaseModel):
+    """Un champ obligatoire manquant retourné par le juge de validation."""
+    model_config = ConfigDict(from_attributes=True)
+
+    field_name: str
+    label: str
+    requirement: str          # 'R' ou 'C'
+    message: str | None = None
+
+
+class UeValidationOut(BaseModel):
+    """Verdict de complétude d'une UE (champs manquants + statut calculé)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    ue_uuid: uuid.UUID
+    statut: str               # 'valide' | 'non_valide' (complétude pure)
+    is_valid: bool
+    missing: list[MissingFieldOut]
+
+
+class UePatchIn(BaseModel):
+    """Corps d'édition : { field_name: valeur, ... } pour les champs éditables."""
+    model_config = ConfigDict(extra="forbid")
+
+    fields: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Champs à modifier (clé = nom canonique, ex. 'region', 'rayon').",
+    )
+
+
+class UeEditResultOut(BaseModel):
+    """Réponse du PATCH : l'UE à jour + le verdict de validation recalculé."""
+    model_config = ConfigDict(from_attributes=True)
+
+    ue: UeOut
+    validation: UeValidationOut

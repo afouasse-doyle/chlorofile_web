@@ -4,7 +4,7 @@ INSERT INTO appweb.field_definitions(entity,year_suffix,field_name,label,data_ty
 ('ue','2026-2027','region','Région','liste','manuel','R','region',NULL,NULL,NULL,TRUE,2),
 ('ue','2026-2027','rayon','Rayon','decimal','manuel','R',NULL,NULL,'0','12',TRUE,3),
 ('ue','2026-2027','gradient_intensite','Gradient d intensité','liste','manuel','R','gradient_intensite',NULL,NULL,NULL,TRUE,4),
-('ue','2026-2027','code_dica','Code DICA','liste','manuel','R','dica_codes',NULL,NULL,NULL,TRUE,5),
+('ue','2026-2027','code_dica','Code DICA','liste','auto','R','dica_codes',NULL,NULL,NULL,TRUE,5),
 ('ue','2026-2027','traitement','Traitement','texte','derive','O',NULL,NULL,NULL,NULL,FALSE,6),
 ('ue','2026-2027','plant_ha','Plant/ha','entier','manuel','C',NULL,'plant_ha_plantation','600','2000',TRUE,7),
 ('ue','2026-2027','traitement_ps','Préparation de terrain','liste','manuel','C','traitement_ps','traitement_ps_prep',NULL,NULL,TRUE,8),

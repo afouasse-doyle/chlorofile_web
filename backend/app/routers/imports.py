@@ -20,7 +20,7 @@ from app.dependencies import get_active_user_ref1
 from app.models.import_batch import ImportBatch, ImportBatchRow
 from app.schemas.import_batch import DBFPreviewOut, ImportBatchOut
 from app.services import dbf_import as dbf_service
-from app.services import ue_service
+from app.services import pds_service, ue_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/imports", tags=["imports"])
@@ -143,7 +143,7 @@ def commit_import(
     if batch.dbf_type == "UE":
         result = ue_service.commit_batch(db, batch)
     elif batch.dbf_type == "PDS":
-        raise HTTPException(status_code=501, detail="Import PDS (parcelles) pas encore implémenté")
+        result = pds_service.commit_batch(db, batch)
     else:
         raise HTTPException(status_code=422, detail=f"dbf_type inconnu : {batch.dbf_type}")
 

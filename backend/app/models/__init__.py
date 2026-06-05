@@ -9,6 +9,7 @@ from app.models.dica_code import DicaCode
 from app.models.parcelle import Parcelle
 from app.models.edit_history import EditHistory
 from app.models.validation_rule import ValidationRule
+from app.models.field_definition import FieldDefinition
 from app.models.validation_result import ValidationResult
 from app.models.kizeo_log import KizeoGenerationLog
 
@@ -25,6 +26,7 @@ __all__ = [
     "Parcelle",
     "EditHistory",
     "ValidationRule",
+    "FieldDefinition",
     "ValidationResult",
     "KizeoGenerationLog",
 ]

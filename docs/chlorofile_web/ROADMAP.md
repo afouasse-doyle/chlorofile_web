@@ -36,33 +36,39 @@ Légende : ✅ fait · 🚧 en cours · ⬜ à faire
 | Étape | Statut | Notes |
 |---|---|---|
 | `UeService.upsert_from_batch()` | ✅ | `ue_service.commit_batch` : somme ha, dérive traitement via dica_codes, upsert ue. Testé (7.27, REB) |
-| `ParcelleService.upsert_from_batch()` | ⬜ | upsert + soft-delete des parcelles disparues |
-| Brancher le commit dans `/imports/{uuid}/commit` | ✅ | UE → ue_service ; PDS → 501 (à venir) |
-| Migrations Alembic | ⬜ | versionner les évolutions de schéma |
+| `ParcelleService.upsert_from_batch()` | ✅ | `pds_service.commit_batch` : upsert + soft-delete (wipe scopé par UE) + gate « UE valide ». Testé (14 accrochées, wipe 8/6) |
+| Brancher le commit dans `/imports/{uuid}/commit` | ✅ | UE → ue_service ; **PDS → pds_service** (plus de 501) |
+| Migrations Alembic | ⬜ | versionner les évolutions de schéma (toujours à faire) |
 
 ## Phase 3 — Validation & édition métier
 
 | Étape | Statut | Notes |
 |---|---|---|
-| Service de validation (validation_rules) | ⬜ | écrit `validation_results` |
-| Routes UE (GET) | ✅ | `GET /ue/`, `GET /ue/{uuid}` (scopé coop) |
-| Routes UE (PATCH) / parcelles | ⬜ | + edit_history |
-| Génération Kizeo (simulée) | ⬜ | `kizeo_generation_log` |
+| Service de validation (le « juge ») | ✅ | `validation_service.validate_ue` : R/O/C + conditionnels (year/region/traitement). Pur. Testé sur UE-050 |
+| Modèle `FieldDefinition` + correctif `ValidationRule` | ✅ | `field_definition.py` créé ; `ValidationRule` complété (rule_name, region, traitement_match) |
+| Correctif seed `code_dica` → `source=auto` | ✅ | seed + base ; était `manuel` à tort (faussait le statut) |
+| Routes UE (GET) | ✅ | `GET /ue/`, `GET /ue/{uuid}`, **`GET /ue/{uuid}/validation`** |
+| Route UE (PATCH) + edit_history | ✅ | bornes min/max (422), audit, recalcul statut, re-dérivation traitement. Testé (3 cas) |
+| Gate PDS « UE valide » | ✅ | branché dans `pds_service` (3 compteurs de skip) |
+| Génération Kizeo (simulée) | ⬜ | `kizeo_generation_log` — Phase 4A (réutilise le juge en pré-vol) |
 
 ## Phase 4 — Frontend
 
-| Étape | Statut | Notes |
+➡️ **Détail complet dans [`ROADMAP_FRONTEND.md`](ROADMAP_FRONTEND.md)** (sous-phases 4A endpoints prérequis · 4B fondations · 4C écrans).
+Spec UI exhaustive : [`FRONTEND_NOTES.md`](FRONTEND_NOTES.md).
+
+| Sous-phase | Statut | Résumé |
 |---|---|---|
-| Squelette React + TypeScript + MUI | ⬜ | menu gauche, tables filtrables |
-| Écran login | ⬜ | |
-| Écran import DBF (preview → commit) | ⬜ | |
-| Écrans UE / parcelles / validation | ⬜ | |
+| 4A — Endpoints backend prérequis | ⬜ | `form-schema` (#1), `/years`, `/parcelles`, Kizeo, dashboard, comparaison conflits |
+| 4B — Fondations front | ⬜ | Vite+React+TS+MUI, AuthContext, YearContext, layout, react-query |
+| 4C — Écrans | ⬜ | login → import → liste UE → **édition UE** → parcelles → validation → Kizeo → admin |
 
 ---
 
 ## Points ouverts à trancher
 
-- Multi-coop pour `fqcf_admin` (sélection de coop) — non implémenté
+- Multi-coop pour `fqcf_admin` (sélection de coop) — non implémenté (bloque les routes coop pour un admin global)
 - Politique de complexité des mots de passe côté API
-- Confirmation : champs manuels exacts sur `ue` (au-delà de gradient_intensite, rayon, stocking_av_tr)
-- Confirmation : `PLT_ADMIS` → `plant_ha` ou `plant_max`
+- **Durcissement non-destructif de `ue_service.commit_batch`** : ne jamais écraser avec une valeur vide ; sortir `region` (champ manuel) de `_UE_FIRST_FIELDS` — à faire avant d'ouvrir les ré-imports (voir FRONTEND_NOTES §8/§12)
+- Migrations Alembic jamais initialisées (schéma appliqué à la main jusqu'ici)
+- RLS PostgreSQL différée à la toute fin
